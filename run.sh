@@ -1,5 +1,12 @@
 #!/bin/bash
+echo -e "
 
+by
+
+    MASTER-HACK
+
+
+    "
 # Function to check the operating system
 check_os() {
     if [[ -f /etc/os-release ]]; then
