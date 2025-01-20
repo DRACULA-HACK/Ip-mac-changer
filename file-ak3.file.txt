@@ -1,45 +1,37 @@
 #!/bin/bash
 
-# Function to restore the default IP address and MAC address
-restore_default() {
-    # Get the original MAC address
-    ORIG_MAC=$(ip link show dev wlan0 | awk '/ether/ {print $2}')
+# Define your network interface
+INTERFACE="eth0"  # Change this if your interface has a different name
 
-    # Restore the default MAC address
-    ip link set dev wlan0 down
-    ip link set dev wlan0 address $ORIG_MAC
-    ip link set dev wlan0 up
+# Bring the network interface up
+echo "Bringing up the network interface $INTERFACE..."
+ip link set dev $INTERFACE up
 
-    # Verify the default MAC address
-    NEW_MAC_VERIFY=$(ip link show dev wlan0 | awk '/ether/ {print $2}')
+# Flush current IP configuration
+echo "Flushing current IP configuration..."
+ip addr flush dev $INTERFACE
 
-    if [ "$NEW_MAC_VERIFY" == "$ORIG_MAC" ]; then
-        echo "MAC address restored to $ORIG_MAC"
-    else
-        echo "MAC address restore failed."
-        exit 1
-    fi
+# Obtain a new IP address via DHCP
+echo "Obtaining a new IP address via DHCP..."
+dhclient $INTERFACE
 
-    # Restore the default IP address
-    ip addr flush dev wlan0
-    ip addr add 192.168.0.1/24 dev wlan0
+# Restore default network settings
+echo "Restoring default network settings..."
+sysctl -w net.ipv6.conf.all.disable_ipv6=0
+sysctl -w net.ipv6.conf.default.disable_ipv6=0
+sysctl -w net.ipv4.conf.all.log_martians=1
+sysctl -w net.ipv4.conf.default.log_martians=1
+sysctl -w net.ipv4.icmp_echo_ignore_all=0
+sysctl -w net.ipv4.conf.all.accept_source_route=1
+sysctl -w net.ipv4.conf.default.accept_source_route=1
+sysctl -w net.ipv4.conf.all.accept_redirects=1
+sysctl -w net.ipv4.conf.default.accept_redirects=1
+sysctl -w net.ipv4.conf.all.secure_redirects=1
+sysctl -w net.ipv4.conf.default.secure_redirects=1
 
-    # Verify the default IP address
-    NEW_IP_VERIFY=$(ip addr show dev wlan0 | awk '/inet / {print $2}' | cut -d/ -f1)
+# Set DNS servers
+echo "Setting DNS servers..."
+echo "nameserver 8.8.8.8" > /etc/resolv.conf  # Google Public DNS
+echo "nameserver 8.8.4.4" >> /etc/resolv.conf  # Google Public DNS
 
-    if [ "$NEW_IP_VERIFY" == "192.168.0.1" ]; then
-        echo "IP address restored to 192.168.0.1"
-    else
-        echo "IP address restore failed."
-        exit 1
-    fi
-}
-
-# Check if the script is being run as root
-if [[ $EUID -ne 0 ]]; then
-    echo "This script must be run as root."
-    exit 1
-fi
-
-# Restore the default IP and MAC addresses
-restore_default
+echo "Network restoration complete."
