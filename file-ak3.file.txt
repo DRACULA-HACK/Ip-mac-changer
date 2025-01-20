@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# Function to restore the default IP address and MAC address
+restore_default() {
+    # Get the original MAC address
+    ORIG_MAC=$(ip link show dev wlan0 | awk '/ether/ {print $2}')
+
+    # Restore the default MAC address
+    ip link set dev wlan0 down
+    ip link set dev wlan0 address $ORIG_MAC
+    ip link set dev wlan0 up
+
+    # Verify the default MAC address
+    NEW_MAC_VERIFY=$(ip link show dev wlan0 | awk '/ether/ {print $2}')
+
+    if [ "$NEW_MAC_VERIFY" == "$ORIG_MAC" ]; then
+        echo "MAC address restored to $ORIG_MAC"
+    else
+        echo "MAC address restore failed."
+        exit 1
+    fi
+
+    # Restore the default IP address
+    ip addr flush dev wlan0
+    ip addr add 192.168.0.1/24 dev wlan0
+
+    # Verify the default IP address
+    NEW_IP_VERIFY=$(ip addr show dev wlan0 | awk '/inet / {print $2}' | cut -d/ -f1)
+
+    if [ "$NEW_IP_VERIFY" == "192.168.0.1" ]; then
+        echo "IP address restored to 192.168.0.1"
+    else
+        echo "IP address restore failed."
+        exit 1
+    fi
+}
+
+# Check if the script is being run as root
+if [[ $EUID -ne 0 ]]; then
+    echo "This script must be run as root."
+    exit 1
+fi
+
+# Restore the default IP and MAC addresses
+restore_default
